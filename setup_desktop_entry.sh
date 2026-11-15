@@ -24,10 +24,12 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
-APP_ID="dk64-recompiled"
-APP_NAME="Donkey Kong 64: Recompiled"
+# Match the name of the entry upstream ships in .github/linux/DK64Recompiled.desktop.
+APP_ID="DK64Recompiled"
+APP_NAME="DK64Recompiled"
 INSTALL_ICON=1
 MODE="install"
+APP_NAME_SET=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -36,7 +38,7 @@ while [[ $# -gt 0 ]]; do
         --check) MODE="check"; shift ;;
         --bin-dir) BIN_DIR="$2"; shift 2 ;;
         --app-id) APP_ID="$2"; shift 2 ;;
-        --name) APP_NAME="$2"; shift 2 ;;
+        --name) APP_NAME="$2"; APP_NAME_SET=1; shift 2 ;;
         --no-icon) INSTALL_ICON=0; shift ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
@@ -70,7 +72,8 @@ show_plan() {
     cat <<EOF
   launcher : $LAUNCHER           (from $WRAPPER_SRC)
   menu     : $DESKTOP
-  icon     : $ICON               (from $REPO_DIR/icons/app.svg)
+             base: $REPO_DIR/.github/linux/$APP_ID.desktop
+  icon     : $ICON               (from $REPO_DIR/icons/app.svg, matches Icon=$APP_ID)
   repo hint: $REPO_HINT          (tells the installed wrapper which repo to run)
   desktop  : ${XDG_CURRENT_DESKTOP:-unknown}
 EOF
@@ -93,20 +96,34 @@ echo "  $LAUNCHER"
 printf '%s\n' "$REPO_DIR" >"$REPO_HINT"
 
 step "Installing menu entry"
-cat >"$DESKTOP" <<EOF
+TEMPLATE="$REPO_DIR/.github/linux/$APP_ID.desktop"
+if [[ -f "$TEMPLATE" ]]; then
+    echo "  base: $TEMPLATE"
+    echo "        (upstream ships this entry but no build step installs it, so its"
+    echo "         relative Exec= never resolves; we keep its keys and fix Exec)"
+    sed "s|^Exec=.*|Exec=$LAUNCHER|" "$TEMPLATE" >"$DESKTOP"
+    [[ $APP_NAME_SET -eq 1 ]] && sed -i "s|^Name=.*|Name=$APP_NAME|" "$DESKTOP"
+    grep -q '^Comment=' "$DESKTOP" || echo "Comment=Static recompilation of Donkey Kong 64 for PC." >>"$DESKTOP"
+else
+    echo "  note: $TEMPLATE not found, writing a standalone entry"
+    cat >"$DESKTOP" <<EOF
 [Desktop Entry]
 Type=Application
 Version=1.0
 Name=$APP_NAME
 GenericName=N64 static recompilation (local build)
-Comment=Starts the local build and records a diagnostic log
 Exec=$LAUNCHER
 Icon=$APP_ID
 Terminal=false
-NoDisplay=false
 Categories=Game;Emulator;
-Keywords=n64;dk64;donkey kong;recompiled;recomp;
-StartupWMClass=DK64Recompiled
+EOF
+fi
+
+# Local conveniences are appended; upstream's own keys are left alone.
+grep -q '^Keywords=' "$DESKTOP" || echo "Keywords=n64;dk64;donkey kong;recompiled;recomp;" >>"$DESKTOP"
+grep -q '^StartupWMClass=' "$DESKTOP" || echo "StartupWMClass=DK64Recompiled" >>"$DESKTOP"
+if ! grep -q '^Actions=' "$DESKTOP"; then
+    cat >>"$DESKTOP" <<EOF
 Actions=settings;logs;
 
 [Desktop Action settings]
@@ -117,6 +134,7 @@ Exec=xdg-open ${XDG_CONFIG_HOME:-$HOME/.config}/DK64Recompiled
 Name=Open log folder
 Exec=xdg-open ${XDG_STATE_HOME:-$HOME/.local/state}/DK64Recompiled/logs
 EOF
+fi
 echo "  $DESKTOP"
 
 if [[ $INSTALL_ICON -eq 1 && -f "$REPO_DIR/icons/app.svg" ]]; then

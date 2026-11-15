@@ -19,18 +19,27 @@
 set -uo pipefail
 
 find_repo() {
-    # Prefer the repository that contains this script, then the install-time hint.
-    local candidate
-    candidate="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
-    if [[ -x "$candidate/DK64Recompiled" ]]; then
-        echo "$candidate"
+    # Order matters: the install-time hint first, then the repository containing
+    # this script. The second check must ignore a wrapper that is itself named
+    # DK64Recompiled, otherwise an installed copy would resolve to its own bin
+    # directory and exec itself.
+    local here candidate self
+    here="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+    self="$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+
+    if [[ -f "$here/.dk64_repo" ]]; then
+        read -r candidate <"$here/.dk64_repo"
+        if [[ -n "$candidate" && -x "$candidate/DK64Recompiled" ]]; then
+            echo "$candidate"
+            return 0
+        fi
+    fi
+
+    if [[ -x "$here/DK64Recompiled" && "$(realpath "$here/DK64Recompiled" 2>/dev/null)" != "$self" ]]; then
+        echo "$here"
         return 0
     fi
-    if [[ -f "$candidate/.dk64_repo" ]]; then
-        read -r candidate <"$candidate/.dk64_repo"
-        echo "$candidate"
-        return 0
-    fi
+
     echo "$HOME/Projects/Donkey-Kong-64-Recompiled"
 }
 
