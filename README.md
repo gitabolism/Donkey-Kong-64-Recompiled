@@ -120,6 +120,8 @@ On this platform the vendored UI dependencies need `-DCMAKE_CXX_FLAGS="-include 
 
 Both helpers are optional. The game can always be started directly from the build directory, as long as `assets/` and `recompcontrollerdb.txt` are next to the executable.
 
+`configure_graphics.sh` applies a named profile to the game's own `graphics.json` (`max`, `supersample`, `retro240`, `vanilla`), backing up the previous file first and printing the exact change it made. `max` leaves `res_option` on `Auto`, which makes RT64 scale the internal resolution to the window height, and raises antialiasing and draw distance; the `supersample` and `retro240` profiles render at a high internal resolution and then present a supersampled 480p or 240p image, which is a look rather than an upgrade, and needs more VRAM. The script refuses to run while the game is running, because the game rewrites the file on exit.
+
 ## Libraries Used and Projects Referenced
 * [RT64](https://github.com/rt64/rt64) for the project's rendering engine
 * [RmlUi](https://github.com/mikke89/RmlUi) for building the menus and launcher
