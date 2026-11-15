@@ -102,6 +102,24 @@ If you want to play a modded ROM or in another language, note that support for m
 ## Building
 Building is not required to play this project, as prebuilt binaries (which do not contain game assets) can be found in the [Releases](https://github.com/Rainchus/Donkey-Kong-64-Recompiled/releases) section. Instructions on how to build this project can be found in the [BUILDING.md](BUILDING.md) file.
 
+### Build helper scripts
+`arch_build.sh` runs the whole pipeline from BUILDING.md in one command on Arch Linux and CachyOS: submodule setup, building the recompiler tools, decompressing the ROM with `decompressor.cpp`, recompiling the game and the patches, and finally the CMake build. It takes the path to a standard (compressed) US ROM and checks that it is the supported revision before doing anything.
+
+```bash
+./arch_build.sh "/path/to/Donkey Kong 64 (U) [!].z64"   # or: DK64_ROM="/path/to/rom.z64" ./arch_build.sh
+./arch_build.sh Debug                                  # build with CMAKE_BUILD_TYPE=Debug
+./arch_build.sh --skip-tools --skip-rom                # reuse existing tools and decompressed ROM
+```
+
+On this platform the vendored UI dependencies need `-DCMAKE_CXX_FLAGS="-include cstdint"` (libstdc++ no longer includes those headers transitively), and the `-Wl,--allow-multiple-definition` linker flag used on other Linux distributions is not required when building with clang and lld. The script handles both.
+
+### Launcher and desktop entry
+`dk64_launcher.sh` starts the game from the repository root and records a diagnostic log for each run: the build revision, submodule pins, toolchain versions, current graphics configuration, GPU and VRAM state at launch, followed by the game's own output. Logs are written to `~/.local/state/DK64Recompiled/logs`, with the newest one always available as `latest.log`, and the last 20 runs are kept. The script also refuses to start a second instance, which would fight over the save file.
+
+`setup_desktop_entry.sh` installs that launcher into `~/.local/bin` along with a menu entry and icon. It uses only freedesktop conventions (`~/.local/share/applications`, the hicolor icon theme), so it works on KDE, GNOME, XFCE and similar desktops; the desktop-specific extras are limited to window grouping and optional right-click actions. Use `--check` to see what would be written and `--uninstall` to remove everything again. Passing `--desktop` to `arch_build.sh` runs the installer after a successful build.
+
+Both helpers are optional. The game can always be started directly from the build directory, as long as `assets/` and `recompcontrollerdb.txt` are next to the executable.
+
 ## Libraries Used and Projects Referenced
 * [RT64](https://github.com/rt64/rt64) for the project's rendering engine
 * [RmlUi](https://github.com/mikke89/RmlUi) for building the menus and launcher
